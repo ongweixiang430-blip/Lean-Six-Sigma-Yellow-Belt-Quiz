@@ -13,17 +13,14 @@ import {
   XCircle, 
   Timer, 
   Target, 
-  Award,
   BookOpen,
   Play,
   Download,
   FileText,
-  ShieldCheck,
   RefreshCw
 } from 'lucide-react';
 import { questions, type Question } from './questions';
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 
 // Shuffles an array in place
 function shuffle<T>(array: T[]): T[] {
@@ -35,11 +32,20 @@ function shuffle<T>(array: T[]): T[] {
   return newArray;
 }
 
+// Capitalizes the first letter of a string, but preserves acronyms
+function capitalizeFirstWord(str: string): string {
+  if (!str) return '';
+  // If the string is already all uppercase and has more than 1 character, assume it's an acronym and keep it capitalized
+  if (str.length > 1 && str === str.toUpperCase() && /[A-Z]/.test(str)) {
+    return str;
+  }
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
 interface QuizState {
   userName: string;
   userEmail: string;
   isRegistered: boolean;
-  attempts: number;
   currentQuestionIndex: number;
   score: number;
   selectedQuestions: Question[];
@@ -55,7 +61,6 @@ export default function App() {
     userName: '',
     userEmail: '',
     isRegistered: false,
-    attempts: 1,
     currentQuestionIndex: 0,
     score: 0,
     selectedQuestions: [],
@@ -90,7 +95,7 @@ export default function App() {
 
   // Initialize randomized quiz
   const startQuiz = () => {
-    if (!state.userName || !state.userEmail || state.attempts > 3) return;
+    if (!state.userName || !state.userEmail) return;
 
     const shuffledQuestions = shuffle(questions).slice(0, 50);
     const questionsWithShuffledOptions = shuffledQuestions.map(q => ({
@@ -164,7 +169,7 @@ export default function App() {
     // Header
     doc.setFontSize(22);
     doc.setTextColor(15, 23, 42); // slate-900
-    doc.text('Lean Six Sigma Yellow Belt Post-Training Quiz Results', pageWidth / 2, 20, { align: 'center' });
+    doc.text('Response Summary - Lean Six Sigma Yellow Belt Quiz', pageWidth / 2, 20, { align: 'center' });
     
     doc.setFontSize(12);
     doc.setTextColor(100, 116, 139); // slate-500
@@ -197,41 +202,19 @@ export default function App() {
       } else {
         doc.setTextColor(239, 68, 68); // red-500
       }
-      doc.text(`Your Answer: ${userAnswer || 'No Answer'}`, 25, yPos);
+      doc.text(`Your Answer: ${userAnswer ? capitalizeFirstWord(userAnswer) : 'No Answer'}`, 25, yPos);
       yPos += 5;
       
       if (!isCorrect) {
         doc.setTextColor(100, 116, 139); // slate-500
-        doc.text(`Correct Answer: ${q.correctAnswer}`, 25, yPos);
+        doc.text(`Correct Answer: ${capitalizeFirstWord(q.correctAnswer)}`, 25, yPos);
         yPos += 5;
       }
       
       yPos += 5;
     });
 
-    doc.save(`${state.userName}_quiz_response.pdf`);
-  };
-
-  const generateCertificate = async () => {
-    const certificateElement = document.getElementById('certificate-template');
-    if (!certificateElement) return;
-    
-    certificateElement.style.display = 'block';
-    const canvas = await html2canvas(certificateElement, {
-      scale: 3,
-      useCORS: true,
-      backgroundColor: '#ffffff'
-    });
-    certificateElement.style.display = 'none';
-    
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('l', 'mm', 'a4');
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`${state.userName}_certificate.pdf`);
+    doc.save(`${state.userName}_response_summary.pdf`);
   };
 
   const currentQuestion = state.selectedQuestions[state.currentQuestionIndex];
@@ -316,7 +299,7 @@ export default function App() {
               </p>
             </div>
  
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
               <div className="p-4 sm:p-6 bg-slate-50 rounded-xl border border-slate-200 flex sm:flex-col items-center sm:items-start justify-between sm:justify-start">
                 <div className="flex items-center gap-3 sm:block">
                   <Target className="w-5 h-5 sm:w-6 sm:h-6 text-slate-900 mb-0 sm:mb-3" />
@@ -331,40 +314,20 @@ export default function App() {
                 </div>
                 <div className="text-xl sm:text-2xl font-mono">None</div>
               </div>
-              <div className="p-4 sm:p-6 bg-slate-50 rounded-xl border border-slate-200 flex sm:flex-col items-center sm:items-start justify-between sm:justify-start">
-                <div className="flex items-center gap-3 sm:block">
-                  <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6 text-slate-900 mb-0 sm:mb-3" />
-                  <div className="text-[10px] sm:text-sm font-bold uppercase tracking-wider text-slate-400">Attempt</div>
-                </div>
-                <div className={`text-xl sm:text-2xl font-mono font-bold ${
-                  state.attempts === 1 ? 'text-green-600' : 
-                  state.attempts === 2 ? 'text-yellow-600' : 
-                  'text-red-600'
-                }`}>
-                  {state.attempts} / 3
-                </div>
-              </div>
             </div>
 
             <div className="space-y-4 mb-10 text-sm text-slate-600 bg-yellow-50 p-6 rounded-xl border border-yellow-100 italic">
               <p>• Passing score is 80% (40 correct answers).</p>
-              <p>• Download the PDF of your responses upon completing the quiz.</p>
-              {state.attempts === 3 && (
-                <p className="text-red-600 font-bold">⚠️ This is your final attempt!</p>
-              )}
+              <p>• Upon achieving the required passing score, you are required to download the PDF of your response summary.</p>
+              <p className="text-red-600 font-bold">• Your progress will NOT be saved. If you refresh the page or quit the browser, you will have to restart the quiz from the beginning.</p>
             </div>
 
             <button 
               id="start-btn"
               onClick={startQuiz}
-              disabled={state.attempts > 3}
-              className={`w-full font-bold py-4 rounded-lg uppercase tracking-widest text-xs transition-colors ${
-                state.attempts > 3 
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                : 'bg-slate-900 text-yellow-400 hover:bg-slate-800 shadow-xl'
-              }`}
+              className="w-full bg-slate-900 text-yellow-400 font-bold py-4 rounded-lg uppercase tracking-widest text-xs hover:bg-slate-800 transition-colors shadow-xl"
             >
-              {state.attempts > 3 ? 'No attempts remaining' : 'Start Quiz Now'}
+              Start Quiz Now
             </button>
           </div>
         </motion.div>
@@ -376,58 +339,58 @@ export default function App() {
   if (state.isFinished) {
     const percentage = (state.score / state.selectedQuestions.length) * 100;
     const isPass = percentage >= 80;
-    const isFinalFail = !isPass && state.attempts === 3;
 
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans text-slate-900">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className={`max-w-2xl w-full bg-white rounded-xl shadow-2xl overflow-hidden border-4 ${isFinalFail ? 'border-red-600' : 'border-slate-900'}`}
+          className={`max-w-2xl w-full bg-white rounded-xl shadow-2xl overflow-hidden border-4 ${!isPass ? 'border-yellow-500' : 'border-slate-900'}`}
         >
-          <div className={`p-8 sm:p-12 text-center ${isPass ? 'bg-green-500' : isFinalFail ? 'bg-red-600' : 'bg-yellow-500'} text-white`}>
-            {isFinalFail ? <ShieldCheck className="w-12 h-12 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6" /> : <Trophy className="w-12 h-12 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6" />}
+          <div className={`p-8 sm:p-12 text-center ${isPass ? 'bg-green-500' : 'bg-yellow-500'} text-white`}>
+            {isPass ? <Trophy className="w-12 h-12 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6" /> : <RefreshCw className="w-12 h-12 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6" />}
             <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tight mb-2">
-              {isFinalFail ? 'Quiz Failed' : 'Quiz Result'}
+              {isPass ? 'Quiz Result' : 'Quiz Failed'}
             </h2>
             <p className="font-mono text-lg sm:text-xl opacity-90">{state.userName}</p>
           </div>
  
           <div className="p-6 sm:p-10">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-              <div className={`p-4 sm:p-6 rounded-xl border-2 flex flex-col items-center ${isFinalFail ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'}`}>
+              <div className={`p-4 sm:p-6 rounded-xl border-2 flex flex-col items-center border-slate-100 bg-slate-50`}>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Final Score</span>
-                <span className={`text-3xl sm:text-4xl font-mono font-black ${isFinalFail ? 'text-red-600' : 'text-slate-900'}`}>{state.score}<span className="text-slate-300 text-xl sm:text-2xl italic">/50</span></span>
+                <span className={`text-3xl sm:text-4xl font-mono font-black text-slate-900`}>{state.score}<span className="text-slate-300 text-xl sm:text-2xl italic">/50</span></span>
               </div>
-              <div className={`p-4 sm:p-6 rounded-xl border-2 flex flex-col items-center ${isFinalFail ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'}`}>
+              <div className={`p-4 sm:p-6 rounded-xl border-2 flex flex-col items-center border-slate-100 bg-slate-50`}>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">percentage</span>
-                <span className={`text-3xl sm:text-4xl font-mono font-black ${isFinalFail ? 'text-red-600' : 'text-slate-900'}`}>{percentage.toFixed(1)}%</span>
+                <span className={`text-3xl sm:text-4xl font-mono font-black text-slate-900`}>{percentage.toFixed(1)}%</span>
               </div>
             </div>
  
             <div className="mb-10 text-center">
               <div className={`inline-block px-6 sm:px-10 py-3 rounded-full text-xs sm:text-sm font-black uppercase tracking-[0.2em] ${
-                isPass ? 'bg-green-100 text-green-700' : 
-                isFinalFail ? 'bg-red-100 text-red-700' : 
-                'bg-yellow-100 text-yellow-700'
+                isPass ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
               }`}>
-                {isPass ? 'congratulations, you passed!' : isFinalFail ? 'ATTEMPTS EXHAUSTED' : 'RETAKE RECOMMENDED'}
+                {isPass ? 'congratulations, you passed!' : 'RETAKE RECOMMENDED'}
               </div>
             </div>
  
             {isPass ? (
               <div className="mb-8">
+                <p className="text-slate-600 text-sm mb-4 text-center font-bold">
+                  Important: Please download your response summary below as proof of your results.
+                </p>
                 <button 
                   onClick={generateResponsePDF}
                   className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-900 text-slate-900 font-bold py-4 rounded-xl uppercase tracking-widest text-[10px] sm:text-xs hover:bg-slate-50 transition-colors"
                 >
                   <FileText className="w-4 h-4" />
-                  download pdf of your response
+                  download response summary (PDF)
                 </button>
               </div>
             ) : (
               <div className="mb-8 p-6 bg-slate-50 rounded-xl border-2 border-slate-100 text-center italic text-slate-500 text-sm">
-                Review the concepts and try again. You must achieve at least 80% to earn your certification.
+                Review the concepts and try again. You must achieve at least 80% to pass.
               </div>
             )}
 
@@ -438,63 +401,15 @@ export default function App() {
                   ...prev, 
                   isStarted: false, 
                   isFinished: false,
-                  attempts: prev.attempts + 1 
                 }))}
-                className={`w-full font-bold py-5 rounded-xl uppercase tracking-widest text-xs transition-transform hover:scale-[1.02] flex items-center justify-center gap-3 ${
-                  state.attempts >= 3 
-                  ? isFinalFail ? 'bg-red-50 text-red-300 border-2 border-red-100 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                  : 'bg-yellow-400 text-slate-900 border-2 border-slate-900 hover:bg-yellow-500 shadow-lg'
-                }`}
-                disabled={state.attempts >= 3}
+                className="w-full font-bold py-5 rounded-xl uppercase tracking-widest text-xs transition-transform hover:scale-[1.02] flex items-center justify-center gap-3 bg-yellow-400 text-slate-900 border-2 border-slate-900 hover:bg-yellow-500 shadow-lg"
               >
                 <RefreshCw className="w-4 h-4" />
-                {state.attempts >= 3 ? 'No more attempts' : 'Try Again Now'}
+                Try Again Now
               </button>
             )}
           </div>
         </motion.div>
-
-        {/* Hidden Certificate Template */}
-        <div id="certificate-template" style={{ display: 'none', position: 'fixed', left: '-5000px', top: 0, width: '1000px', height: '1414px' }}>
-          <div className="w-[1000px] h-[707px] flex flex-col items-center justify-between relative overflow-hidden" 
-            style={{ backgroundColor: '#ffffff', border: '20px solid #0f172a', padding: '64px' }}>
-            {/* Background elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 rotate-45 translate-x-32 -translate-y-32" style={{ backgroundColor: '#facc15' }}></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 -rotate-45 -translate-x-32 translate-y-32" style={{ backgroundColor: '#f1f5f9' }}></div>
-            
-            <div className="text-center z-10">
-              <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8" style={{ backgroundColor: '#0f172a', color: '#facc15' }}>
-                <span className="text-5xl font-black">Σ</span>
-              </div>
-              <h1 className="text-5xl font-black uppercase tracking-tighter mb-4" style={{ color: '#0f172a' }}>Certificate of Accomplishment</h1>
-              <p className="text-xl uppercase tracking-widest mb-12" style={{ color: '#64748b' }}>Lean Six Sigma Yellow Belt Professional</p>
-              
-              <div className="mb-12">
-                <p className="italic mb-2" style={{ color: '#94a3b8' }}>This is to certify that</p>
-                <p className="text-6xl font-black uppercase tracking-tight border-b-4 inline-block px-8 pb-2" style={{ color: '#0f172a', borderColor: '#0f172a' }}>{state.userName}</p>
-              </div>
-              
-              <p className="text-xl max-w-2xl mx-auto leading-relaxed uppercase font-bold" style={{ color: '#334155' }}>
-                has successfully demonstrated proficiency and mastery in the Lean Six Sigma Yellow Belt methodology by passing the quiz with a score of {state.score}/50.
-              </p>
-            </div>
-            
-            <div className="w-full flex justify-between items-end z-10">
-              <div className="text-left">
-                <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#94a3b8' }}>Date Issue</p>
-                <p className="text-lg font-black" style={{ color: '#0f172a' }}>{new Date().toLocaleDateString()}</p>
-              </div>
-              <div className="text-center">
-                <ShieldCheck className="w-16 h-16 mx-auto" style={{ color: '#eab308' }} />
-                <p className="text-[10px] font-bold uppercase tracking-[0.3em] mt-2" style={{ color: '#94a3b8' }}>Verification Verified</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#94a3b8' }}>ID Ref</p>
-                <p className="text-lg font-black" style={{ color: '#0f172a' }}>#LSS-CERT-{Math.floor(Math.random() * 100000)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     );
   }
@@ -502,6 +417,9 @@ export default function App() {
   // Quiz Interface (Geometric Balance)
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
+      <div className="text-red-600 text-[10px] sm:text-xs font-bold py-2 px-4 text-center uppercase tracking-widest shrink-0 z-[60]">
+        Reminder: Progress is not saved. Refreshing will restart the quiz.
+      </div>
       {/* Header */}
       <header className="h-auto sm:h-20 bg-slate-900 text-white flex flex-col sm:flex-row items-center justify-between px-6 sm:px-10 py-4 sm:py-0 border-b-4 border-yellow-400 shrink-0 gap-4 sm:gap-0">
         <div className="flex items-center gap-4 text-center sm:text-left">
@@ -572,9 +490,9 @@ export default function App() {
  
           <div className="hidden lg:flex mt-auto border-t border-slate-100 pt-6 flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">attempt number</span>
-              <span className={`text-[10px] font-mono font-bold ${state.attempts === 3 ? 'text-red-500' : 'text-slate-900'}`}>
-                {state.attempts} / 3
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">score</span>
+              <span className="text-[10px] font-mono font-bold text-slate-900">
+                {state.score} / {state.currentQuestionIndex}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -633,12 +551,39 @@ export default function App() {
                         {letter}
                       </div>
                       <span className={`pt-0.5 sm:pt-1 font-bold ${isAnswered && !isCorrect && !isSelected ? 'text-slate-300' : 'text-slate-700'}`}>
-                        {option}
+                        {capitalizeFirstWord(option)}
                       </span>
                     </button>
                   );
                 })}
               </div>
+
+              {/* Explanation Box */}
+              {isAnswered && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`p-6 rounded-xl border-2 mb-8 ${
+                    selectedOption === currentQuestion.correctAnswer 
+                      ? 'bg-green-50 border-green-200 text-green-800' 
+                      : 'bg-red-50 border-red-200 text-red-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    {selectedOption === currentQuestion.correctAnswer ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-red-600" />
+                    )}
+                    <span className="font-black uppercase tracking-widest text-xs">
+                      {selectedOption === currentQuestion.correctAnswer ? 'Correct' : 'Incorrect'}
+                    </span>
+                  </div>
+                  <p className="text-sm sm:text-base leading-relaxed font-semibold">
+                    {currentQuestion.explanation || `The correct answer is "${currentQuestion.correctAnswer}".`}
+                  </p>
+                </motion.div>
+              )}
  
               {/* Navigation Footer */}
               <div className="mt-auto flex flex-col sm:flex-row items-center justify-between border-t border-slate-200 pt-6 lg:pt-8 gap-4 sm:gap-0">
