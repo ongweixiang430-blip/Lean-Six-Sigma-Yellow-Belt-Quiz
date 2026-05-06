@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useMemo, type FormEvent } from 'react';
+import { useState, useMemo, useEffect, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Trophy, 
@@ -68,6 +68,25 @@ export default function App() {
 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update current time every second for the live timer
+  useEffect(() => {
+    if (!state.isStarted || state.isFinished) return;
+    
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [state.isStarted, state.isFinished]);
+
+  // Sync currentTime when quiz starts
+  useEffect(() => {
+    if (state.isStarted && !state.isFinished) {
+      setCurrentTime(Date.now());
+    }
+  }, [state.isStarted, state.isFinished]);
 
   // Initialize randomized quiz
   const startQuiz = () => {
@@ -397,20 +416,13 @@ export default function App() {
             </div>
  
             {isPass ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+              <div className="mb-8">
                 <button 
                   onClick={generateResponsePDF}
-                  className="flex items-center justify-center gap-3 bg-white border-2 border-slate-900 text-slate-900 font-bold py-4 rounded-xl uppercase tracking-widest text-[10px] sm:text-xs hover:bg-slate-50 transition-colors"
+                  className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-900 text-slate-900 font-bold py-4 rounded-xl uppercase tracking-widest text-[10px] sm:text-xs hover:bg-slate-50 transition-colors"
                 >
                   <FileText className="w-4 h-4" />
                   download pdf of your response
-                </button>
-                <button 
-                  onClick={generateCertificate}
-                  className="flex items-center justify-center gap-3 bg-slate-900 text-white font-bold py-4 rounded-xl uppercase tracking-widest text-[10px] sm:text-xs hover:bg-slate-800 transition-colors"
-                >
-                  <Award className="w-4 h-4" />
-                  Certificate
                 </button>
               </div>
             ) : (
@@ -502,7 +514,7 @@ export default function App() {
           <div className="text-left sm:text-right">
             <span className="block text-[8px] sm:text-[10px] text-slate-400 uppercase tracking-widest">Time Elapsed</span>
             <span className="text-lg sm:text-2xl font-mono text-yellow-400 tabular-nums">
-              {formatTime(Math.floor((Date.now() - (state.startTime || 0)) / 1000))}
+              {formatTime(Math.floor((currentTime - (state.startTime || 0)) / 1000))}
             </span>
           </div>
           <div className="hidden sm:block w-px h-10 bg-slate-700"></div>
