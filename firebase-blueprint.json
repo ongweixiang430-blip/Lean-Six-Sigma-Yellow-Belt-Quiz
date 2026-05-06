@@ -1,0 +1,35 @@
+{
+  "entities": {
+    "QuizAttempt": {
+      "title": "Quiz Attempt",
+      "description": "A record of a participant's quiz attempt",
+      "type": "object",
+      "properties": {
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "score": { "type": "integer" },
+        "totalQuestions": { "type": "integer" },
+        "percentage": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userAnswers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "questionId": { "type": "integer" },
+              "selectedAnswer": { "type": "string" },
+              "isCorrect": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "required": ["userName", "userEmail", "score", "totalQuestions", "percentage", "timestamp"]
+    }
+  },
+  "firestore": {
+    "attempts": {
+      "schema": "QuizAttempt",
+      "description": "Collection of all quiz attempts"
+    }
+  }
+}

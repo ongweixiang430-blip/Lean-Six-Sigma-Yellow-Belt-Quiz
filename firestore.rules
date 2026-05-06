@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidAttempt(data) {
+      return data.keys().hasAll(['userName', 'userEmail', 'score', 'totalQuestions', 'percentage', 'timestamp', 'userAnswers'])
+        && data.keys().size() == 7
+        && data.userName is string && data.userName.size() <= 200
+        && data.userEmail is string && data.userEmail.size() <= 200
+        && data.score is int
+        && data.totalQuestions is int
+        && data.percentage is number
+        && data.timestamp is timestamp
+        && data.userAnswers is list;
+    }
+
+    match /attempts/{attemptId} {
+      // Allow creation by anyone for this public quiz
+      // We rely on validation to prevent junk data
+      allow create: if isValidId(attemptId) && isValidAttempt(request.resource.data);
+      
+      // Only admin can read all attempts
+      // For now, I'll keep it restricted. 
+      // If the user wants an admin dashboard later, we can add it.
+      allow read: if false; 
+    }
+  }
+}
